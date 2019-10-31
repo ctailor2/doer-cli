@@ -1,8 +1,6 @@
 package acceptance_test
 
 import (
-	"os/exec"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -20,7 +18,7 @@ var _ = Describe("login", func() {
 		server.AppendHandlers(
 			ghttp.RespondWith(200, ""),
 		)
-		session = runCli(cliPath, server.URL())
+		session = runCli(cliPath, "login", "--target", server.URL())
 	})
 
 	AfterEach(func() {
@@ -57,18 +55,3 @@ var _ = Describe("login", func() {
 		Eventually(server.ReceivedRequests()).Should(HaveLen(1))
 	})
 })
-
-func buildCli() string {
-	cliPath, err := gexec.Build("github.com/ctailor2/doer-cli")
-	Expect(err).NotTo(HaveOccurred())
-
-	return cliPath
-}
-
-func runCli(path string, serverUrl string) *gexec.Session {
-	cmd := exec.Command(path, "login", "--target", serverUrl)
-	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
-	Expect(err).NotTo(HaveOccurred())
-
-	return session
-}
