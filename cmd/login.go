@@ -23,10 +23,7 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
-)
-
-var (
-	serverUrl string
+	"github.com/spf13/viper"
 )
 
 // loginCmd represents the login command
@@ -54,7 +51,7 @@ to quickly create a Cobra application.`,
 		loginForm["password"] = passwordResult
 		httpClient := &http.Client{}
 		jsonData, _ := json.Marshal(loginForm)
-		response, _ := httpClient.Post(serverUrl+"/v1/login", "application/json", bytes.NewReader(jsonData))
+		response, _ := httpClient.Post(viper.GetString("server-url")+"/v1/login", "application/json", bytes.NewReader(jsonData))
 		fmt.Printf("response = %v", response)
 	},
 }
@@ -71,5 +68,4 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// loginCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	loginCmd.Flags().StringVarP(&serverUrl, "target", "t", "http://localhost:3000", "used for setting the api target")
 }

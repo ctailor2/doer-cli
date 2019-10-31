@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"os"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -18,16 +19,15 @@ var _ = Describe("login", func() {
 		server.AppendHandlers(
 			ghttp.RespondWith(200, ""),
 		)
-		session = runCli(cliPath, "login", "--target", server.URL())
+		session = runCli(cliPath, "--api", server.URL(), "--config", "test-config.yml")
+		Eventually(session).Should(gexec.Exit(0))
+		session = runCli(cliPath, "login", "--config", "test-config.yml")
 	})
 
 	AfterEach(func() {
 		gexec.CleanupBuildArtifacts()
+		os.Remove("./test-config.yml")
 		server.Close()
-	})
-
-	It("exits with status code 0", func() {
-		Eventually(session).Should(gexec.Exit(0))
 	})
 
 	It("prompts the user for login email", func() {
