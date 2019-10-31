@@ -18,6 +18,7 @@ var _ = Describe("login", func() {
 		server = ghttp.NewServer()
 		server.AppendHandlers(
 			ghttp.RespondWith(200, ""),
+			ghttp.RespondWith(200, ""),
 		)
 		session = runCli(cliPath, "--api", server.URL(), "--config", "test-config.yml")
 		Eventually(session).Should(gexec.Exit(0))
@@ -52,6 +53,6 @@ var _ = Describe("login", func() {
 		Eventually(session).Should(gbytes.Say("Password"))
 		_, passwordErr := buffer.Write([]byte("somePassword\n"))
 		Expect(passwordErr).NotTo(HaveOccurred())
-		Eventually(server.ReceivedRequests()).Should(HaveLen(1))
+		Eventually(server.ReceivedRequests()).Should(HaveLen(2))
 	})
 })

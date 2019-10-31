@@ -16,8 +16,12 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+
+	"github.com/manifoldco/promptui"
 
 	"github.com/spf13/cobra"
 
@@ -26,9 +30,17 @@ import (
 )
 
 var (
-	cfgFile string
+	cfgFile   string
 	serverUrl string
 )
+
+type BaseResourcesResponse struct {
+	Links map[string]Link `json:"_links"`
+}
+
+type Link struct {
+	Href string `json:"href"`
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -43,9 +55,25 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
+		client := &http.Client{}
+		response, _ := client.Get(serverUrl + "/v1/")
+		var baseResourcesResponse BaseResourcesResponse
+		jsonParseErr := json.NewDecoder(response.Body).Decode(&baseResourcesResponse)
+		if jsonParseErr != nil {
+			fmt.Println(jsonParseErr)
+		}
+		baseResourceOptions := make([]string, 0, len(baseResourcesResponse.Links))
+		for k := range baseResourcesResponse.Links {
+			if k != "self" {
+				baseResourceOptions = append(baseResourceOptions, k)
+			}
+		}
+		prompt := promptui.Select{Label: "Choose", Items: baseResourceOptions}
+		_, result, _ := prompt.Run()
+		fmt.Println(result)
 		viper.Set("server-url", serverUrl)
 		err := viper.WriteConfig()
-		if (err != nil) {
+		if err != nil {
 			fmt.Println("Error configuring server-url as: ", serverUrl)
 			fmt.Println(err)
 		}
@@ -73,7 +101,7 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.Flags().StringVarP(&serverUrl, "api", "a", "http://localhost:3000", "used for setting the api target")
+	rootCmd.Flags().StringVarP(&serverUrl, "api", "a", "http://localhost:8080", "used for setting the api target")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -96,15 +124,15 @@ func initConfig() {
 		cfgFile = home + "/" + configName + ".yml"
 	}
 
-	 _, err := os.Stat(cfgFile)
-    if os.IsNotExist(err) {
-        var file, err = os.Create(cfgFile)
-        if err != nil {
+	_, err := os.Stat(cfgFile)
+	if os.IsNotExist(err) {
+		var file, err = os.Create(cfgFile)
+		if err != nil {
 			fmt.Println("Error creating config file: ", cfgFile)
 			fmt.Println(err)
-        }
-        defer file.Close()
-    }
+		}
+		defer file.Close()
+	}
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
