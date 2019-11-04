@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -77,12 +78,31 @@ to quickly create a Cobra application.`,
 		prompt := promptui.Select{Label: "Choose", Items: baseResourceOptions}
 		_, action, _ := prompt.Run()
 		switch action {
-		case "login":
-			login(baseResourcesResponse.Links[action].Href)
+		case "login", "signup":
+			establishSession(baseResourcesResponse.Links[action].Href)
 		default:
 			fmt.Println("Chosen selection has not yet been implemented")
 		}
 	},
+}
+
+func establishSession(url string) {
+	form := make(map[string]interface{})
+	email := promptui.Prompt{
+		Label: "Email",
+	}
+	emailResult, _ := email.Run()
+	form["email"] = emailResult
+	password := promptui.Prompt{
+		Label: "Password",
+		Mask:  '*',
+	}
+	passwordResult, _ := password.Run()
+	form["password"] = passwordResult
+	httpClient := &http.Client{}
+	jsonData, _ := json.Marshal(form)
+	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
+	fmt.Printf("response = %v", response)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
