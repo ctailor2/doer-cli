@@ -55,6 +55,12 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
+		viper.Set("server-url", serverUrl)
+		err := viper.WriteConfig()
+		if err != nil {
+			fmt.Println("Error configuring server-url as: ", serverUrl)
+			fmt.Println(err)
+		}
 		client := &http.Client{}
 		response, _ := client.Get(serverUrl + "/v1/")
 		var baseResourcesResponse BaseResourcesResponse
@@ -69,13 +75,12 @@ to quickly create a Cobra application.`,
 			}
 		}
 		prompt := promptui.Select{Label: "Choose", Items: baseResourceOptions}
-		_, result, _ := prompt.Run()
-		fmt.Println(result)
-		viper.Set("server-url", serverUrl)
-		err := viper.WriteConfig()
-		if err != nil {
-			fmt.Println("Error configuring server-url as: ", serverUrl)
-			fmt.Println(err)
+		_, action, _ := prompt.Run()
+		switch action {
+		case "login":
+			login(baseResourcesResponse.Links[action].Href)
+		default:
+			fmt.Println("Chosen selection has not yet been implemented")
 		}
 	},
 }

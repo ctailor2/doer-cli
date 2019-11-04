@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ctailor2/doer-cli/cmd"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/ghttp"
-	"github.com/ctailor2/doer-cli/cmd"
 )
 
 var _ = Describe("root", func() {
@@ -28,10 +28,10 @@ var _ = Describe("root", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, baseResources),
 		)
 		session = runCli(cliPath, "--api", server.URL(), "--config", "test-config.yml")
-		Eventually(session).Should(gexec.Exit(0))
 	})
 
 	It("fetches the base resources", func() {
+		Eventually(session).Should(gexec.Exit(0))
 		server.AppendHandlers(
 			ghttp.VerifyRequest("GET", "/v1/"),
 		)
@@ -42,6 +42,7 @@ var _ = Describe("root", func() {
 		Eventually(session).Should(gbytes.Say("Choose:"))
 		Eventually(session).Should(gbytes.Say("baseResource1"))
 		Eventually(session).Should(gbytes.Say("baseResource2"))
+		Eventually(session).ShouldNot(gbytes.Say("self"))
 	})
 
 	AfterEach(func() {

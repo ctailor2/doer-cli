@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"github.com/spf13/viper"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -23,7 +24,6 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // loginCmd represents the login command
@@ -37,23 +37,28 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		loginForm := make(map[string]interface{})
-		email := promptui.Prompt{
-			Label: "Email",
-		}
-		emailResult, _ := email.Run()
-		loginForm["email"] = emailResult
-		password := promptui.Prompt{
-			Label: "Password",
-			Mask:  '*',
-		}
-		passwordResult, _ := password.Run()
-		loginForm["password"] = passwordResult
-		httpClient := &http.Client{}
-		jsonData, _ := json.Marshal(loginForm)
-		response, _ := httpClient.Post(viper.GetString("server-url")+"/v1/login", "application/json", bytes.NewReader(jsonData))
-		fmt.Printf("response = %v", response)
+		url := viper.GetString("server-url")+"/v1/login"
+		login(url)
 	},
+}
+
+func login(url string) {
+	loginForm := make(map[string]interface{})
+	email := promptui.Prompt{
+		Label: "Email",
+	}
+	emailResult, _ := email.Run()
+	loginForm["email"] = emailResult
+	password := promptui.Prompt{
+		Label: "Password",
+		Mask:  '*',
+	}
+	passwordResult, _ := password.Run()
+	loginForm["password"] = passwordResult
+	httpClient := &http.Client{}
+	jsonData, _ := json.Marshal(loginForm)
+	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
+	fmt.Printf("response = %v", response)
 }
 
 func init() {
