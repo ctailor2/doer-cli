@@ -43,6 +43,15 @@ type Link struct {
 	Href string `json:"href"`
 }
 
+type SessionResponse struct {
+	Session Session         `json:"session"`
+	Links   map[string]Link `json:"_links"`
+}
+
+type Session struct {
+	Token string `json:"token"`
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "doer-cli",
@@ -102,7 +111,18 @@ func establishSession(url string) {
 	httpClient := &http.Client{}
 	jsonData, _ := json.Marshal(form)
 	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
-	fmt.Printf("response = %v", response)
+	var SessionResponse SessionResponse
+	jsonParseErr := json.NewDecoder(response.Body).Decode(&SessionResponse)
+	if jsonParseErr != nil {
+		fmt.Println(jsonParseErr)
+	}
+	viper.Set("session-token", SessionResponse.Session.Token)
+	viper.Set("href", SessionResponse.Links["root"].Href)
+	err := viper.WriteConfig()
+	if err != nil {
+		fmt.Println("Error configuring server-url as: ", serverUrl)
+		fmt.Println(err)
+	}
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

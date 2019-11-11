@@ -1,6 +1,8 @@
 package acceptance_test
 
 import (
+	"io/ioutil"
+	"github.com/ctailor2/doer-cli/cmd"
 	"os"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,9 +18,16 @@ var _ = Describe("login", func() {
 	BeforeEach(func() {
 		cliPath := buildCli()
 		server = ghttp.NewServer()
+		links := make(map[string]cmd.Link)
+		links["root"] = cmd.Link{Href: "rootResourcesHref"}
 		server.AppendHandlers(
 			ghttp.RespondWith(200, ""),
-			ghttp.RespondWith(200, ""),
+			ghttp.RespondWithJSONEncoded(200, cmd.SessionResponse{
+				Session: cmd.Session{
+					Token: "someToken",
+				},
+				Links: links,
+			}),
 		)
 		session = runCli(cliPath, "--api", server.URL(), "--config", "test-config.yml")
 		Eventually(session).Should(gexec.Exit(0))
@@ -54,5 +63,19 @@ var _ = Describe("login", func() {
 		_, err = buffer.Write([]byte("somePassword\n"))
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(server.ReceivedRequests()).Should(HaveLen(2))
+	})
+
+	It("writes the session token and root resources href to config file when login successful", func() {
+		var buffer = gbytes.NewBuffer()
+		_, err := buffer.Write([]byte("someEmail\n"))
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(session).Should(gbytes.Say("Password"))
+		_, err = buffer.Write([]byte("somePassword\n"))
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(server.ReceivedRequests()).Should(HaveLen(2))
+		contents, _ := ioutil.ReadFile("test-config.yml")
+		contentString := string(contents)
+		Expect(contentString).To(ContainSubstring("someToken"))
+		Expect(contentString).To(ContainSubstring("rootResourcesHref"))
 	})
 })
