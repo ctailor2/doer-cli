@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"net/url"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -35,7 +36,7 @@ var (
 	serverUrl string
 )
 
-type BaseResourcesResponse struct {
+type ResourcesResponse struct {
 	Links map[string]Link `json:"_links"`
 }
 
@@ -72,23 +73,31 @@ to quickly create a Cobra application.`,
 			fmt.Println(err)
 		}
 		client := &http.Client{}
-		response, _ := client.Get(serverUrl + "/v1/")
-		var baseResourcesResponse BaseResourcesResponse
-		jsonParseErr := json.NewDecoder(response.Body).Decode(&baseResourcesResponse)
+		var response *http.Response
+		if (viper.IsSet("session-token")) {
+			href, _ := url.Parse(viper.GetString("href"))
+			req, _ := http.NewRequest("GET", href.String(), nil)
+			req.Header.Add("Session-Token", viper.GetString("session-token"))
+			response, _ = client.Do(req)
+		} else {
+			response, _ = client.Get(serverUrl + "/v1/")
+		}
+		var resourcesResponse ResourcesResponse
+		jsonParseErr := json.NewDecoder(response.Body).Decode(&resourcesResponse)
 		if jsonParseErr != nil {
 			fmt.Println(jsonParseErr)
 		}
-		baseResourceOptions := make([]string, 0, len(baseResourcesResponse.Links))
-		for k := range baseResourcesResponse.Links {
+		resourceOptions := make([]string, 0, len(resourcesResponse.Links))
+		for k := range resourcesResponse.Links {
 			if k != "self" {
-				baseResourceOptions = append(baseResourceOptions, k)
+				resourceOptions = append(resourceOptions, k)
 			}
 		}
-		prompt := promptui.Select{Label: "Choose", Items: baseResourceOptions}
+		prompt := promptui.Select{Label: "Choose", Items: resourceOptions}
 		_, action, _ := prompt.Run()
 		switch action {
 		case "login", "signup":
-			establishSession(baseResourcesResponse.Links[action].Href)
+			establishSession(resourcesResponse.Links[action].Href)
 		default:
 			fmt.Println("Chosen selection has not yet been implemented")
 		}
