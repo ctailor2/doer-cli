@@ -96,7 +96,7 @@ func getBaseOrRootResourcesResponse() ResourcesResponse {
 	client := &http.Client{}
 	var response *http.Response
 	if viper.IsSet("session-token") {
-		href, _ := url.Parse(viper.GetString("rootHref"))
+		href, _ := url.Parse(viper.GetString("root-href"))
 		req, _ := http.NewRequest("GET", href.String(), nil)
 		req.Header.Add("Session-Token", viper.GetString("session-token"))
 		response, _ = client.Do(req)
@@ -130,10 +130,9 @@ func login(scanner *bufio.Scanner, url string) {
 		fmt.Println(jsonParseErr)
 	}
 	viper.Set("session-token", SessionResponse.Session.Token)
-	viper.Set("rootHref", SessionResponse.Links["root"].Href)
+	viper.Set("root-href", SessionResponse.Links["root"].Href)
 	err := viper.WriteConfig()
 	if err != nil {
-		fmt.Println("Error configuring server-url as: ", serverUrl)
 		fmt.Println(err)
 	}
 }
@@ -164,10 +163,9 @@ func signup(scanner *bufio.Scanner, url string) {
 		fmt.Println(jsonParseErr)
 	}
 	viper.Set("session-token", SessionResponse.Session.Token)
-	viper.Set("rootHref", SessionResponse.Links["root"].Href)
+	viper.Set("root-href", SessionResponse.Links["root"].Href)
 	err := viper.WriteConfig()
 	if err != nil {
-		fmt.Println("Error configuring server-url as: ", serverUrl)
 		fmt.Println(err)
 	}
 }
@@ -194,13 +192,6 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().StringVarP(&serverUrl, "api", "a", "http://localhost:8080", "used for setting the api target")
-	
-	viper.Set("server-url", serverUrl)
-	err := viper.WriteConfig()
-	if err != nil {
-		fmt.Println("Error configuring server-url as: ", serverUrl)
-		fmt.Println(err)
-	}
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -237,5 +228,10 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+	viper.Set("server-url", serverUrl)
+	err = viper.WriteConfig()
+	if err != nil {
+		fmt.Println(err)
 	}
 }
