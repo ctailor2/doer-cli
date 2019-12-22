@@ -18,7 +18,6 @@ package cmd
 import (
 	"os"
 	"bufio"
-	"github.com/spf13/viper"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +32,13 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		url := viper.GetString("server-url")+"/v1/login"
-		login(bufio.NewScanner(os.Stdin), url)
+		resourcesResponse := getBaseOrRootResourcesResponse()
+		scanner := bufio.NewScanner(os.Stdin)
+		if loginLink, exists := resourcesResponse.Links["login"]; exists {
+			login(scanner, loginLink.Href)
+		} else {
+			chooseNextAction(resourcesResponse, scanner)
+		}
 	},
 }
 

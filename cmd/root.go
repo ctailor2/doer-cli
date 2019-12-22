@@ -65,39 +65,9 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		viper.Set("server-url", serverUrl)
-		err := viper.WriteConfig()
-		if err != nil {
-			fmt.Println("Error configuring server-url as: ", serverUrl)
-			fmt.Println(err)
-		}
-		client := &http.Client{}
-		var response *http.Response
-		if viper.IsSet("session-token") {
-			href, _ := url.Parse(viper.GetString("href"))
-			req, _ := http.NewRequest("GET", href.String(), nil)
-			req.Header.Add("Session-Token", viper.GetString("session-token"))
-			response, _ = client.Do(req)
-		} else {
-			response, _ = client.Get(serverUrl + "/v1/")
-		}
-		var resourcesResponse ResourcesResponse
-		jsonParseErr := json.NewDecoder(response.Body).Decode(&resourcesResponse)
-		if jsonParseErr != nil {
-			fmt.Println(jsonParseErr)
-		}
-		resourceOptions := make([]string, 0, len(resourcesResponse.Links))
-
-		for k := range resourcesResponse.Links {
-			if k != "self" {
-				resourceOptions = append(resourceOptions, k)
-			}
-		}
-		sort.Strings(resourceOptions)
+		resourcesResponse := getBaseOrRootResourcesResponse()
 		scanner := bufio.NewScanner(os.Stdin)
-		fmt.Printf("Choose action %v: ", resourceOptions)
-		scanner.Scan()
-		action := scanner.Text()
+		action := chooseNextAction(resourcesResponse, scanner)
 		switch action {
 		case "login":
 			login(scanner, resourcesResponse.Links[action].Href)
@@ -107,6 +77,38 @@ to quickly create a Cobra application.`,
 			fmt.Println("Chosen selection has not yet been implemented")
 		}
 	},
+}
+
+func chooseNextAction(resourcesResponse ResourcesResponse, scanner *bufio.Scanner) string {
+	resourceOptions := make([]string, 0, len(resourcesResponse.Links))
+	for k := range resourcesResponse.Links {
+		if k != "self" {
+			resourceOptions = append(resourceOptions, k)
+		}
+	}
+	sort.Strings(resourceOptions)
+	fmt.Printf("Choose action %v: ", resourceOptions)
+	scanner.Scan()
+	return scanner.Text()
+}
+
+func getBaseOrRootResourcesResponse() ResourcesResponse {
+	client := &http.Client{}
+	var response *http.Response
+	if viper.IsSet("session-token") {
+		href, _ := url.Parse(viper.GetString("rootHref"))
+		req, _ := http.NewRequest("GET", href.String(), nil)
+		req.Header.Add("Session-Token", viper.GetString("session-token"))
+		response, _ = client.Do(req)
+	} else {
+		response, _ = client.Get(serverUrl + "/v1/")
+	}
+	var resourcesResponse ResourcesResponse
+	jsonParseErr := json.NewDecoder(response.Body).Decode(&resourcesResponse)
+	if jsonParseErr != nil {
+		fmt.Println(jsonParseErr)
+	}
+	return resourcesResponse
 }
 
 func login(scanner *bufio.Scanner, url string) {
@@ -128,7 +130,7 @@ func login(scanner *bufio.Scanner, url string) {
 		fmt.Println(jsonParseErr)
 	}
 	viper.Set("session-token", SessionResponse.Session.Token)
-	viper.Set("href", SessionResponse.Links["root"].Href)
+	viper.Set("rootHref", SessionResponse.Links["root"].Href)
 	err := viper.WriteConfig()
 	if err != nil {
 		fmt.Println("Error configuring server-url as: ", serverUrl)
@@ -162,7 +164,7 @@ func signup(scanner *bufio.Scanner, url string) {
 		fmt.Println(jsonParseErr)
 	}
 	viper.Set("session-token", SessionResponse.Session.Token)
-	viper.Set("href", SessionResponse.Links["root"].Href)
+	viper.Set("rootHref", SessionResponse.Links["root"].Href)
 	err := viper.WriteConfig()
 	if err != nil {
 		fmt.Println("Error configuring server-url as: ", serverUrl)
@@ -192,6 +194,13 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().StringVarP(&serverUrl, "api", "a", "http://localhost:8080", "used for setting the api target")
+	
+	viper.Set("server-url", serverUrl)
+	err := viper.WriteConfig()
+	if err != nil {
+		fmt.Println("Error configuring server-url as: ", serverUrl)
+		fmt.Println(err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
