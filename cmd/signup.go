@@ -16,6 +16,8 @@ limitations under the License.
 package cmd
 
 import (
+	"os"
+	"bufio"
 	"github.com/spf13/viper"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +34,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		url := viper.GetString("server-url")+"/v1/signup"
-		establishSession(url)
+		signup(bufio.NewScanner(os.Stdin), url)
 	},
 }
 

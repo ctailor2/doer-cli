@@ -16,18 +16,17 @@ limitations under the License.
 package cmd
 
 import (
-	"net/url"
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
-
-	"github.com/manifoldco/promptui"
-
-	"github.com/spf13/cobra"
+	"sort"
 
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -74,7 +73,7 @@ to quickly create a Cobra application.`,
 		}
 		client := &http.Client{}
 		var response *http.Response
-		if (viper.IsSet("session-token")) {
+		if viper.IsSet("session-token") {
 			href, _ := url.Parse(viper.GetString("href"))
 			req, _ := http.NewRequest("GET", href.String(), nil)
 			req.Header.Add("Session-Token", viper.GetString("session-token"))
@@ -88,34 +87,71 @@ to quickly create a Cobra application.`,
 			fmt.Println(jsonParseErr)
 		}
 		resourceOptions := make([]string, 0, len(resourcesResponse.Links))
+
 		for k := range resourcesResponse.Links {
 			if k != "self" {
 				resourceOptions = append(resourceOptions, k)
 			}
 		}
-		prompt := promptui.Select{Label: "Choose", Items: resourceOptions}
-		_, action, _ := prompt.Run()
+		sort.Strings(resourceOptions)
+		scanner := bufio.NewScanner(os.Stdin)
+		fmt.Printf("Choose action %v: ", resourceOptions)
+		scanner.Scan()
+		action := scanner.Text()
 		switch action {
-		case "login", "signup":
-			establishSession(resourcesResponse.Links[action].Href)
+		case "login":
+			login(scanner, resourcesResponse.Links[action].Href)
+		case "signup":
+			signup(scanner, resourcesResponse.Links[action].Href)
 		default:
 			fmt.Println("Chosen selection has not yet been implemented")
 		}
 	},
 }
 
-func establishSession(url string) {
+func login(scanner *bufio.Scanner, url string) {
 	form := make(map[string]interface{})
-	email := promptui.Prompt{
-		Label: "Email",
-	}
-	emailResult, _ := email.Run()
+	fmt.Print("Email: ")
+	scanner.Scan()
+	emailResult := scanner.Text()
 	form["email"] = emailResult
-	password := promptui.Prompt{
-		Label: "Password",
-		Mask:  '*',
+	fmt.Print("Password: ")
+	scanner.Scan()
+	passwordResult := scanner.Text()
+	form["password"] = passwordResult
+	httpClient := &http.Client{}
+	jsonData, _ := json.Marshal(form)
+	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
+	var SessionResponse SessionResponse
+	jsonParseErr := json.NewDecoder(response.Body).Decode(&SessionResponse)
+	if jsonParseErr != nil {
+		fmt.Println(jsonParseErr)
 	}
-	passwordResult, _ := password.Run()
+	viper.Set("session-token", SessionResponse.Session.Token)
+	viper.Set("href", SessionResponse.Links["root"].Href)
+	err := viper.WriteConfig()
+	if err != nil {
+		fmt.Println("Error configuring server-url as: ", serverUrl)
+		fmt.Println(err)
+	}
+}
+
+func signup(scanner *bufio.Scanner, url string) {
+	form := make(map[string]interface{})
+	fmt.Print("Email: ")
+	scanner.Scan()
+	emailResult := scanner.Text()
+	form["email"] = emailResult
+	fmt.Print("Password: ")
+	scanner.Scan()
+	passwordResult := scanner.Text()
+	fmt.Print("Password Confirmation: ")
+	scanner.Scan()
+	passwordConfirmationResult := scanner.Text()
+	if passwordResult != passwordConfirmationResult {
+		fmt.Println("Password confirmation and password do not match.")
+		return
+	}
 	form["password"] = passwordResult
 	httpClient := &http.Client{}
 	jsonData, _ := json.Marshal(form)
