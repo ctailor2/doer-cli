@@ -17,11 +17,9 @@ package cmd
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"sort"
 
@@ -65,14 +63,18 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		resourcesResponse := getBaseOrRootResourcesResponse()
-		scanner := bufio.NewScanner(os.Stdin)
-		action := chooseNextAction(resourcesResponse, scanner)
+		var resourcesResponse ResourcesResponse
+		if viper.IsSet("session-token") {
+			resourcesResponse = getRootResources(Link{Href: viper.GetString("root-href")})
+		} else {
+			resourcesResponse = getBaseResources(Link{Href: serverUrl + "/v1/"})
+		}
+		action := chooseNextAction(resourcesResponse, bufio.NewScanner(os.Stdin))
 		switch action {
 		case "login":
-			login(scanner, resourcesResponse.Links[action].Href)
+			loginCmd.Run(cmd, args)
 		case "signup":
-			signup(scanner, resourcesResponse.Links[action].Href)
+			signupCmd.Run(cmd, args)
 		default:
 			fmt.Println("Chosen selection has not yet been implemented")
 		}
@@ -92,17 +94,11 @@ func chooseNextAction(resourcesResponse ResourcesResponse, scanner *bufio.Scanne
 	return scanner.Text()
 }
 
-func getBaseOrRootResourcesResponse() ResourcesResponse {
+func getRootResources(link Link) ResourcesResponse {
 	client := &http.Client{}
-	var response *http.Response
-	if viper.IsSet("session-token") {
-		href, _ := url.Parse(viper.GetString("root-href"))
-		req, _ := http.NewRequest("GET", href.String(), nil)
-		req.Header.Add("Session-Token", viper.GetString("session-token"))
-		response, _ = client.Do(req)
-	} else {
-		response, _ = client.Get(serverUrl + "/v1/")
-	}
+	req, _ := http.NewRequest("GET", link.Href, nil)
+	req.Header.Add("Session-Token", viper.GetString("session-token"))
+	response, _ := client.Do(req)
 	var resourcesResponse ResourcesResponse
 	jsonParseErr := json.NewDecoder(response.Body).Decode(&resourcesResponse)
 	if jsonParseErr != nil {
@@ -111,63 +107,15 @@ func getBaseOrRootResourcesResponse() ResourcesResponse {
 	return resourcesResponse
 }
 
-func login(scanner *bufio.Scanner, url string) {
-	form := make(map[string]interface{})
-	fmt.Print("Email: ")
-	scanner.Scan()
-	emailResult := scanner.Text()
-	form["email"] = emailResult
-	fmt.Print("Password: ")
-	scanner.Scan()
-	passwordResult := scanner.Text()
-	form["password"] = passwordResult
-	httpClient := &http.Client{}
-	jsonData, _ := json.Marshal(form)
-	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
-	var SessionResponse SessionResponse
-	jsonParseErr := json.NewDecoder(response.Body).Decode(&SessionResponse)
+func getBaseResources(link Link) ResourcesResponse {
+	client := &http.Client{}
+	response, _ := client.Get(link.Href)
+	var resourcesResponse ResourcesResponse
+	jsonParseErr := json.NewDecoder(response.Body).Decode(&resourcesResponse)
 	if jsonParseErr != nil {
 		fmt.Println(jsonParseErr)
 	}
-	viper.Set("session-token", SessionResponse.Session.Token)
-	viper.Set("root-href", SessionResponse.Links["root"].Href)
-	err := viper.WriteConfig()
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func signup(scanner *bufio.Scanner, url string) {
-	form := make(map[string]interface{})
-	fmt.Print("Email: ")
-	scanner.Scan()
-	emailResult := scanner.Text()
-	form["email"] = emailResult
-	fmt.Print("Password: ")
-	scanner.Scan()
-	passwordResult := scanner.Text()
-	fmt.Print("Password Confirmation: ")
-	scanner.Scan()
-	passwordConfirmationResult := scanner.Text()
-	if passwordResult != passwordConfirmationResult {
-		fmt.Println("Password confirmation and password do not match.")
-		return
-	}
-	form["password"] = passwordResult
-	httpClient := &http.Client{}
-	jsonData, _ := json.Marshal(form)
-	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
-	var SessionResponse SessionResponse
-	jsonParseErr := json.NewDecoder(response.Body).Decode(&SessionResponse)
-	if jsonParseErr != nil {
-		fmt.Println(jsonParseErr)
-	}
-	viper.Set("session-token", SessionResponse.Session.Token)
-	viper.Set("root-href", SessionResponse.Links["root"].Href)
-	err := viper.WriteConfig()
-	if err != nil {
-		fmt.Println(err)
-	}
+	return resourcesResponse
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -191,7 +139,7 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	rootCmd.Flags().StringVarP(&serverUrl, "api", "a", "http://localhost:8080", "used for setting the api target")
+	rootCmd.PersistentFlags().StringVarP(&serverUrl, "api", "a", "http://localhost:8080", "used for setting the api target")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -16,9 +16,15 @@ limitations under the License.
 package cmd
 
 import (
-	"os"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"fmt"
 	"bufio"
+	"os"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // loginCmd represents the login command
@@ -32,14 +38,36 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		resourcesResponse := getBaseOrRootResourcesResponse()
+		resourcesResponse := getBaseResources(Link{Href: viper.GetString("server-url") + "/v1/"})
 		scanner := bufio.NewScanner(os.Stdin)
-		if loginLink, exists := resourcesResponse.Links["login"]; exists {
-			login(scanner, loginLink.Href)
-		} else {
-			chooseNextAction(resourcesResponse, scanner)
-		}
+		login(scanner, resourcesResponse.Links["login"].Href)
 	},
+}
+
+func login(scanner *bufio.Scanner, url string) {
+	form := make(map[string]interface{})
+	fmt.Print("Email: ")
+	scanner.Scan()
+	emailResult := scanner.Text()
+	form["email"] = emailResult
+	fmt.Print("Password: ")
+	scanner.Scan()
+	passwordResult := scanner.Text()
+	form["password"] = passwordResult
+	httpClient := &http.Client{}
+	jsonData, _ := json.Marshal(form)
+	response, _ := httpClient.Post(url, "application/json", bytes.NewReader(jsonData))
+	var SessionResponse SessionResponse
+	jsonParseErr := json.NewDecoder(response.Body).Decode(&SessionResponse)
+	if jsonParseErr != nil {
+		fmt.Println(jsonParseErr)
+	}
+	viper.Set("session-token", SessionResponse.Session.Token)
+	viper.Set("root-href", SessionResponse.Links["root"].Href)
+	err := viper.WriteConfig()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func init() {
